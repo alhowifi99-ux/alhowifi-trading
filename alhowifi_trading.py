@@ -339,6 +339,7 @@ if "alerts" not in st.session_state: st.session_state.alerts = []
 if "prev_sigs" not in st.session_state: st.session_state.prev_sigs = {}
 if "results" not in st.session_state: st.session_state.results = {}
 if "last_scan" not in st.session_state: st.session_state.last_scan = 0
+if "selected" not in st.session_state: st.session_state.selected = None
 
 # ══════════════════════════════════════════════════════
 # SCAN
@@ -488,16 +489,18 @@ for sec_name, sec_info in SECTORS.items():
             badge_html = '<span class="badge-conf">&#10003; مؤكد</span>' if st_=="CONFIRMED" else '<span class="badge-armed">قريب</span>' if st_=="ARMED" else '<span class="badge-wait">انتظار</span>'
             trend_str = r.get("trend","—")
 
-            st.markdown(f"""<div class="{card_cls}">
+            if st.button(f"{sym}", key=f"btn_{sym}", use_container_width=True):
+                st.session_state.selected = sym if st.session_state.selected != sym else None
+                st.rerun()
+            st.markdown(f"""<div class="{card_cls}" style="margin-top:-8px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div style="min-width:0">
-      <div class="stock-sym">{sym}</div>
       {typ_html}
       <div style="color:{sc};font-size:.7rem">{trend_str}</div>
     </div>
     <div style="text-align:center;flex-shrink:0">{dot_html}<br/><b style="font-family:monospace;font-size:1rem;color:{sc}">{score}</b></div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
     <div>
       <div class="stock-price">${price:.2f}</div>
       <div class="{chg_cls}">{chg_str}</div>
@@ -505,6 +508,156 @@ for sec_name, sec_info in SECTORS.items():
     {badge_html}
   </div>
 </div>""", unsafe_allow_html=True)
+
+
+
+# ══════════════════════════════════════════════════════
+# DETAIL PANEL — يظهر عند الضغط على أي سهم
+# ══════════════════════════════════════════════════════
+sel = st.session_state.selected
+if sel and sel in results:
+    r = results[sel]
+    cfg = TFS[st.session_state.tf]
+    df = fetch(sel, cfg["interval"], cfg["period"])
+
+    sig  = r.get("sig","انتظار")
+    st_  = r.get("st","WAIT")
+    tgt  = r.get("tgt",{})
+    price= r.get("price",0)
+    chg  = r.get("change",0)
+    cs   = r.get("cs",0)
+    ps   = r.get("ps",0)
+    trap = r.get("trap","SAFE")
+    tR   = r.get("trapR",[])
+    trend= r.get("trend","—")
+    tH   = r.get("tH","—")
+
+    is_call = sig=="CALL"
+    bc_t  = "#00ff88" if is_call else "#ff4060" if sig=="PUT" else "#475569"
+    bc_bg = "rgba(0,255,136,.08)" if is_call else "rgba(255,64,96,.08)" if sig=="PUT" else "rgba(71,85,105,.05)"
+    bc_br = "rgba(0,255,136,.4)" if is_call else "rgba(255,64,96,.4)" if sig=="PUT" else "rgba(71,85,105,.2)"
+
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="background:{bc_bg};border:1px solid {bc_br};border-radius:16px;padding:16px 20px;direction:rtl">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:1.5rem;font-weight:900;color:#f1f5f9">{sel}</span>
+          <span style="background:{bc_bg};border:1px solid {bc_br};border-radius:20px;padding:3px 12px;color:{bc_t};font-weight:700;font-size:.9rem">
+            {'&#9650; CALL' if is_call else '&#9660; PUT' if sig=='PUT' else '&#9711; انتظار'}
+          </span>
+          <span style="background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);border-radius:20px;padding:2px 10px;color:#00ff88;font-size:.8rem;font-weight:700">{st_}</span>
+          {'<span style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:2px 10px;color:#fbbf24;font-size:.8rem">⚠️ '+trap+'</span>' if trap!="SAFE" else '<span style="background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:20px;padding:2px 10px;color:#00ff88;font-size:.8rem">SAFE ✓</span>'}
+        </div>
+        <div style="color:#64748b;font-size:.8rem">{st.session_state.tf}</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1,1,1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(14,24,44,.8);border-radius:12px;padding:14px;direction:rtl">
+          <div style="color:#64748b;font-size:.75rem;margin-bottom:6px">💹 السعر الحالي</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:1.8rem;font-weight:900;color:#f1f5f9">${price:.2f}
+            <span style="font-size:.9rem;color:{'#00ff88' if chg>=0 else '#ff4060'}">{'+' if chg>=0 else ''}{chg:.2f}%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">
+            <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:6px;text-align:center">
+              <div style="color:#475569;font-size:.65rem">RSI</div>
+              <div style="color:{'#ff4060' if r.get('rsi',50)>70 else '#00ff88' if r.get('rsi',50)<30 else '#94a3b8'};font-weight:700;font-size:.9rem">{r.get('rsi',0):.0f}</div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:6px;text-align:center">
+              <div style="color:#475569;font-size:.65rem">ATR</div>
+              <div style="color:#64748b;font-weight:700;font-size:.9rem">{r.get('atr',0):.2f}</div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:6px;text-align:center">
+              <div style="color:#475569;font-size:.65rem">الاتجاه</div>
+              <div style="color:{'#00ff88' if trend=='صاعد' else '#ff4060' if trend=='هابط' else '#fbbf24'};font-weight:700;font-size:.85rem">{trend}</div>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with col2:
+        t1 = tgt.get("t1",float("nan"))
+        t2 = tgt.get("t2",float("nan"))
+        t3 = tgt.get("t3",float("nan"))
+        stop = tgt.get("stop",float("nan"))
+        entry = tgt.get("entry",price)
+        risk = abs(t1-entry)/abs(entry-stop) if not math.isnan(stop) and stop!=entry and not math.isnan(t1) else 0
+
+        t1_s = f"${t1:.2f}" if not math.isnan(t1) else "—"
+        t2_s = f"${t2:.2f}" if not math.isnan(t2) else "—"
+        t3_s = f"${t3:.2f}" if not math.isnan(t3) else "—"
+        stop_s = f"${stop:.2f}" if not math.isnan(stop) else "—"
+        rr_s = f"1:{risk:.1f}" if risk>0 else "—"
+
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,.02);border:1px solid {bc_br}44;border-radius:12px;padding:14px;direction:rtl">
+          <div style="color:#64748b;font-size:.75rem;margin-bottom:10px">📊 خطة الصفقة · {st.session_state.tf}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div style="background:rgba(255,255,255,.04);border:1px solid {bc_br};border-radius:8px;padding:8px;text-align:center">
+              <div style="color:#64748b;font-size:.65rem">⬤ دخول</div>
+              <div style="color:#f1f5f9;font-weight:900;font-size:1rem;font-family:monospace">${entry:.2f}</div>
+            </div>
+            <div style="background:rgba(255,64,96,.06);border:1px solid rgba(255,64,96,.3);border-radius:8px;padding:8px;text-align:center">
+              <div style="color:#64748b;font-size:.65rem">🛑 وقف</div>
+              <div style="color:#ff4060;font-weight:900;font-size:1rem;font-family:monospace">{stop_s}</div>
+            </div>
+            <div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.3);border-radius:8px;padding:8px;text-align:center">
+              <div style="color:#64748b;font-size:.65rem">🎯 هدف 1</div>
+              <div style="color:#00ff88;font-weight:900;font-size:1rem;font-family:monospace">{t1_s}</div>
+              <div style="color:#334155;font-size:.65rem">{rr_s}</div>
+            </div>
+            <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:8px;text-align:center">
+              <div style="color:#64748b;font-size:.65rem">🎯 هدف 2</div>
+              <div style="color:#00d4ff;font-weight:900;font-size:1rem;font-family:monospace">{t2_s}</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:8px;text-align:center">
+            <div style="color:#64748b;font-size:.65rem">🎯 هدف 3</div>
+            <div style="color:#a78bfa;font-weight:900;font-size:1rem;font-family:monospace">{t3_s}</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with col3:
+        # Signal strength bars
+        call_w = cs
+        put_w  = ps
+        trap_c = "#00ff88" if trap=="SAFE" else "#fbbf24" if trap=="RISK" else "#ff4060"
+        trap_msg = " · ".join(tR) if tR else "دخول أنظف"
+
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(14,24,44,.8);border-radius:12px;padding:14px;direction:rtl">
+          <div style="color:#64748b;font-size:.75rem;margin-bottom:10px">⚡ قوة الإشارة</div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="color:#00ff88;font-size:.8rem;font-weight:700">CALL</span>
+              <span style="color:#00ff88;font-size:.8rem;font-weight:700">{call_w}%</span>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px">
+              <div style="height:100%;width:{call_w}%;background:linear-gradient(90deg,#00ff88,#00d4ff);border-radius:3px"></div>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="color:#ff4060;font-size:.8rem;font-weight:700">PUT</span>
+              <span style="color:#ff4060;font-size:.8rem;font-weight:700">{put_w}%</span>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px">
+              <div style="height:100%;width:{put_w}%;background:linear-gradient(90deg,#ff4060,#ff8c42);border-radius:3px"></div>
+            </div>
+          </div>
+          <div style="background:{trap_c}10;border:1px solid {trap_c}30;border-radius:8px;padding:8px">
+            <div style="color:{trap_c};font-weight:700;font-size:.8rem;font-family:monospace">TRAP: {trap}</div>
+            <div style="color:#475569;font-size:.75rem;margin-top:2px">{trap_msg}</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    # Close button
+    if st.button("✕ إغلاق التفاصيل", key="close_detail"):
+        st.session_state.selected = None
+        st.rerun()
 
 st.markdown("<hr style='border-color:rgba(14,24,44,.8);margin:12px 0'>", unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;color:#0f172a;font-size:.7rem">ALHOWIFI SMART TRADING © 2025 · للأغراض التحليلية فقط</div>', unsafe_allow_html=True)
