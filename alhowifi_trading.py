@@ -465,7 +465,7 @@ for sec_name, sec_info in SECTORS.items():
     for i, (sym, r) in enumerate(zip(stocks, sec_results)):
         with cols[i]:
             if r is None or r.get("price",0)<=0:
-                st.markdown(f'<div class="stock-wait"><div class="stock-sym">{sym}</div><div style="color:#334155;font-size:.7rem;margin-top:4px">—</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="stock-wait"><div class="stock-sym">{sym}</div><div style="color:#334155;font-size:.7rem;margin-top:4px">جاري الجلب...</div></div>', unsafe_allow_html=True)
                 continue
             sig  = r.get("sig","انتظار")
             st_  = r.get("st","WAIT")
@@ -488,14 +488,14 @@ for sec_name, sec_info in SECTORS.items():
             badge_html = '<span class="badge-conf">&#10003; مؤكد</span>' if st_=="CONFIRMED" else '<span class="badge-armed">قريب</span>' if st_=="ARMED" else '<span class="badge-wait">انتظار</span>'
             trend_str = r.get("trend","—")
 
-            card_html = f"""<div class="{card_cls}">
+            st.markdown(f"""<div class="{card_cls}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
+    <div style="min-width:0">
       <div class="stock-sym">{sym}</div>
       {typ_html}
       <div style="color:{sc};font-size:.7rem">{trend_str}</div>
     </div>
-    <div style="text-align:center">{dot_html}<br><span style="font-family:'IBM Plex Mono',monospace;font-size:1rem;font-weight:700;color:{sc}">{score}</span></div>
+    <div style="text-align:center;flex-shrink:0">{dot_html}<br/><b style="font-family:monospace;font-size:1rem;color:{sc}">{score}</b></div>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
     <div>
@@ -504,8 +504,7 @@ for sec_name, sec_info in SECTORS.items():
     </div>
     {badge_html}
   </div>
-</div>"""
-            st.markdown(card_html, unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
 st.markdown("<hr style='border-color:rgba(14,24,44,.8);margin:12px 0'>", unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;color:#0f172a;font-size:.7rem">ALHOWIFI SMART TRADING © 2025 · للأغراض التحليلية فقط</div>', unsafe_allow_html=True)
