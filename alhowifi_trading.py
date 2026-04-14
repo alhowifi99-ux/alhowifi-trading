@@ -97,11 +97,19 @@ def bollinger(s,n=20,m=2):
     mid=sma(s,n); dev=s.rolling(n).std()
     return mid,mid+m*dev,mid-m*dev
 def nadaraya(s,w=50,b=3):
-    vals=s.values.astype(float); out=np.full_like(vals,np.nan)
+    vals=s.values.astype(float)
+    out=np.full_like(vals,np.nan)
+    n=len(vals)
+    # اذا البيانات اقل من w نستخدم ما هو متاح
+    w=min(w,n)
+    if w<5: return pd.Series(out,index=s.index)
     idx=np.arange(w); ctr=w-1
-    ws_base=np.exp(-0.5*((idx-ctr)/b)**2); ws_base/=ws_base.sum()
-    for i in range(w-1,len(vals)):
-        out[i]=np.dot(vals[i-w+1:i+1],ws_base)
+    ws_base=np.exp(-0.5*((idx-ctr)/b)**2)
+    ws_base/=ws_base.sum()
+    for i in range(w-1,n):
+        segment=vals[i-w+1:i+1]
+        if len(segment)==w:
+            out[i]=np.dot(segment,ws_base)
     return pd.Series(out,index=s.index)
 def rvol(df,n=20):
     return df.Volume/(df.Volume.rolling(n).mean().replace(0,np.nan))
