@@ -1,4 +1,3 @@
-
 # ═══════════════════════════════════════════════════════
 
 # ALHOWIFI SMART TRADING — Python / Streamlit
